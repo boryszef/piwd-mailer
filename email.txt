@@ -1,0 +1,18 @@
+Szanowna Pani/Szanowny Panie,
+
+jak napisałem na eportalu, z przyczyn technicznych nie jest możliwe obecnie
+przesłanie wyników kolokwium za pośrednictwem JSOS, a polityka uczelni
+względem RODO nie pozwala na opublikowanie zbiorczej listy. Ponieważ dostałem
+od Państwa wiele maili z prośbą o wysłanie wyniku mailem (co, o ile mi
+wiadomo, jest zgodne z prawem), przesyłam wynik tą drogą. Na wszelki wypadek,
+po odczytaniu niniejszej wiadomości proszę spalić komputer/laptopa/telefon ;-)
+
+Wiadomość została wygenerowania i wysłana automatycznie - oczywiście za pomocą
+niewielkiego skryptu w Pythonie, który załączam dla Państwa do
+przestudiowania.
+
+Z kolokwium "Przetwarzanie i wizualizacja danych" w dniu 4 czerwca 2018
+uzyskał(a) Pani/Pan @SCORE@ pkt. Odpowiada to ocenie @GRADENUM@ (@GRADETXT@).
+
+@EPILOGUE@
+Borys Szefczyk
