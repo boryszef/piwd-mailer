@@ -19,7 +19,7 @@ mailUser = "borys.szefczyk"
 class Score(object):
     """Store decimal numbers as integers and convert them to grades
     directly, taking care of correct comparison.
-    
+
     Rationale:
     Suppose the student needs 10.3 points to pass.
     score = 10.2
@@ -29,9 +29,9 @@ class Score(object):
     score >= 10.3
     produces False."""
 
-    self.precision = 1
+    precision = 1
 
-    self.grading = [
+    grading = [
         (-4, 15, "2.0", "niedostateczny"),
         (15, 17.5, "3.0", "dostateczny"),
         (17.5, 20, "3.5", "dostateczny+"),
@@ -61,7 +61,7 @@ class Score(object):
         return float(self.value / Score.factor())
 
     def __str__(self):
-        return "{:.1f}".format(float(self.value))
+        return "{:.1f}".format(float(self))
 
     def __repr__(self):
         return "Score('{}')".format(str(self))
@@ -154,7 +154,7 @@ if __name__ == '__main__':
         to = "%s@student.pwr.edu.pl" % student
         print("Sending score", score, "to", to)
         msg = compose_email(emailFrom, to, emailSubject, body, fileAttach)
-        srv.send_message(msg)
+        #srv.send_message(msg)
         # let the mail server take a breath
         sleep(2)
     srv.quit()
