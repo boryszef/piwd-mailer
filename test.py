@@ -1,4 +1,6 @@
 import unittest
+from tempfile import NamedTemporaryFile
+from os import remove
 from mailer import *
 
 
@@ -26,7 +28,6 @@ class TestScore(unittest.TestCase):
         for i in range(-22, 22):
             x = i/10
             y = (i+1)/10 - 0.1
-            print(x, y)
             self.assertTrue(Score(x) <= Score(y))
             self.assertTrue(Score(x) == Score(y))
 
@@ -67,6 +68,32 @@ class TestResults(unittest.TestCase):
                 line2 = "%s;" % k
                 self.assertTrue(line1 in self.data or \
                                 line2 in self.data)
+
+
+class TestComposeBody(unittest.TestCase):
+
+    def setUp(self):
+        body = "-@SCORE@-@GRADENUM@-@GRADETXT@-@EPILOGUE@-"
+        with NamedTemporaryFile(mode='w', delete=False) as fp:
+            fp.write(body)
+            self.filename = fp.name
+
+    def tearDown(self):
+        remove(self.filename)
+
+    def test_compose(self):
+        for i, grad in enumerate(Score.grading):
+            score = Score((grad[0]+grad[1])/2)
+            num = grad[2]
+            txt = grad[3]
+            rendered = compose_body(self.filename, score)
+            if i == 0:
+                epilogue = "Życzę powodzenia na poprawie,"
+            else:
+                epilogue = "Gratuluję,"
+            expected = "-{}-{}-{}-{}-".format(str(score), num, txt, epilogue)
+            self.assertEqual(rendered, expected)
+
 
 if __name__ == '__main__':
     unittest.main()

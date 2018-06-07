@@ -137,7 +137,7 @@ def get_results(filename):
             student_id = row[0]
             score = row[1]
             if score in (None, ""):
-                score = '0.0'
+                score = 0
             results[student_id] = Score(score)
     return results
 
