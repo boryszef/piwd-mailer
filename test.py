@@ -1,6 +1,7 @@
 import unittest
 from tempfile import NamedTemporaryFile
 from os import remove
+import re
 from mailer import *
 
 
@@ -42,6 +43,7 @@ class TestScore(unittest.TestCase):
                 self.assertEqual(result[1], rn[3])
                 _score += step
                 score = Score(_score)
+
 
 class TestResults(unittest.TestCase):
 
@@ -93,6 +95,44 @@ class TestComposeBody(unittest.TestCase):
                 epilogue = "Gratuluję,"
             expected = "-{}-{}-{}-{}-".format(str(score), num, txt, epilogue)
             self.assertEqual(rendered, expected)
+
+
+class TestComposeEmail(unittest.TestCase):
+
+    def setUp(self):
+        self.fr = "me@example.com"
+        self.to = "you@example.net"
+        self.subject = "Test message"
+        self.body = "hello"
+        with NamedTemporaryFile(mode='w', suffix=".py", delete=False) as fp:
+            fp.write("import sys\n")
+            fp.write("print()\n")
+            self.attachment = fp.name
+        msg = compose_email(self.fr, self.to, self.subject, self.body,
+                            self.attachment)
+        self.str_msg = msg.as_string()
+
+    def test_from(self):
+        sender = re.search("^From: (.*)$", self.str_msg, re.M)
+        self.assertTrue(sender)
+        self.assertEqual(sender.group(1), self.fr)
+
+    def test_to(self):
+        sender = re.search("^To: (.*)$", self.str_msg, re.M)
+        self.assertTrue(sender)
+        self.assertEqual(sender.group(1), self.to)
+
+    def test_subject(self):
+        sender = re.search("^Subject: (.*)$", self.str_msg, re.M)
+        self.assertTrue(sender)
+        self.assertEqual(sender.group(1), self.subject)
+
+    def test_attachment(self):
+        sender = re.search("^Content-Type: text/x-python", self.str_msg, re.M)
+        self.assertTrue(sender)
+
+    def tearDown(self):
+        remove(self.attachment)
 
 
 if __name__ == '__main__':

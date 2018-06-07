@@ -154,7 +154,7 @@ if __name__ == '__main__':
         to = "%s@student.pwr.edu.pl" % student
         print("Sending score", score, "to", to)
         msg = compose_email(emailFrom, to, emailSubject, body, fileAttach)
-        #srv.send_message(msg)
+        srv.send_message(msg)
         # let the mail server take a breath
         sleep(2)
     srv.quit()
