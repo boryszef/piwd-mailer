@@ -4,7 +4,9 @@ from tempfile import NamedTemporaryFile
 from os import remove
 from sys import argv
 from random import randint
-from mailer import Score, Message, Sender, compose_body, get_results
+from base64 import b64decode
+from mailer import Score, Text, Message, Sender
+from mailer import compose_body, get_results
 
 
 class TestScore(unittest.TestCase):
@@ -232,6 +234,32 @@ class TestMessage(unittest.TestCase):
         for match in pattern.finditer(txt):
             count += 1
         self.assertEqual(count, 2)
+
+
+class TestText(unittest.TestCase):
+
+    def setUp(self):
+        self.ascii = b'abAB -+\t12&*(]'
+        self.utf8 = b'abAB \xc4\x85\xc4\x99\xc5\xbb\xc5\x81\t12&*(]'
+
+    def test_ascii(self):
+        text = self.ascii.decode('ASCII')
+        mimeobj = Text(text, _subtype='plain')
+        out = mimeobj.as_string()
+        pat = re.compile('^Content-Type:.*charset="us-ascii"$', re.M)
+        self.assertTrue(pat.search(out))
+        tmp = out.splitlines()
+        self.assertEqual(tmp[-1], text)
+
+    def test_utf8(self):
+        text = self.utf8.decode('UTF-8')
+        mimeobj = Text(text, _subtype='plain')
+        out = mimeobj.as_string()
+        pat = re.compile('^Content-Type:.*charset="utf-8"$', re.M)
+        self.assertTrue(pat.search(out))
+        tmp = out.splitlines()
+        tmp = b64decode(tmp[-1])
+        self.assertEqual(tmp, self.utf8)
 
 
 if __name__ == '__main__':
