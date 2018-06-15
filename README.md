@@ -16,7 +16,7 @@ Suppose the results are stored in a CSV file like this:
 | Ronald Weasley   | 103 |     5 |    10  |  15 |
 
 ```python
-results = get_results(file, 'ID')
+results = get_results('file.csv', 'ID')
 ```
 
 Will return a dictionary with keys corresponding to ID column.
@@ -44,4 +44,17 @@ look like this:
 Your results:
 Test 1:	10
 Test 2:	7
+```
+
+After that the body is included in the message:
+
+```
+msg = Message('me@here.com', 'you@there.edu', 'your results', body)
+```
+
+and the message is being sent:
+
+```
+with Sender(host, user, password) as snd:
+    snd.send(msg)
 ```
