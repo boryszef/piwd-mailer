@@ -138,6 +138,21 @@ def get_results(filename, keyname=None, delimiter=';', quotechar='"'):
 MType = namedtuple('MType', ['type', 'encoding', 'maintype', 'subtype'])
 
 
+class Text(MIMEText):
+    """Create MIMEText object encoded as _charset, unless it's None.
+    In that case, try ASCII or UTF-8."""
+
+    def __init__(self, text, _subtype='plain', _charset=None):
+
+        if _charset == None:
+            try:
+                text.encode('US-ASCII')
+                _charset='US-ASCII'
+            except UnicodeEncodeError:
+                _charset='UTF-8'
+        super(Text, self).__init__(text, _subtype, _charset)
+
+
 class Message(MIMEMultipart):
 
     def __init__(self, fromaddr, toaddr, subject, bodyplain=None,
@@ -160,7 +175,7 @@ class Message(MIMEMultipart):
             attachment_types[att] = MType(ctype, encoding, maintype, subtype)
 
         if bodyplain:
-            text = MIMEText(bodyplain, _subtype='plain', _charset='UTF-8')
+            text = MIMEText(bodyplain, _subtype='plain')
 
         if bodyhtml:
             image_cid = {}
@@ -174,7 +189,7 @@ class Message(MIMEMultipart):
                 bodyhtml = re.sub(pattern, substitute, bodyhtml,
                                   re.IGNORECASE|re.MULTILINE)
                 image_cid[aname] = cid
-            html = MIMEText(bodyhtml, _subtype='html', _charset='UTF-8')
+            html = MIMEText(bodyhtml, _subtype='html')
 
         if bodyplain and bodyhtml:
             alternative = MIMEMultipart('alternative')
