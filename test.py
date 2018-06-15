@@ -87,11 +87,28 @@ class TestResults(unittest.TestCase):
                 self.assertTrue(k in record)
                 self.assertEqual(record[k], str(val[i]))
 
+    def test_content_list(self):
+        results = get_results(self.filename)
+        for row in self.data:
+            key = str(row[0])
+            val = [str(x) for x in row[1:]]
+            self.assertTrue(key in results)
+            record = results[key]
+            self.assertEqual(val, record)
+
 
 class TestComposeBody(unittest.TestCase):
 
     def setUp(self):
-        body = "-@SCORE@-@GRADENUM@-@GRADETXT@-@EPILOGUE@-"
+        self.values = {
+            'abc':123,
+            'XXX':-1,
+            '777':999}
+        body = """preamble
+        @abc@
+        @777@
+        @noreplacement@
+        epilogue"""
         with NamedTemporaryFile(mode='w', delete=False) as fp:
             fp.write(body)
             self.filename = fp.name
@@ -99,18 +116,23 @@ class TestComposeBody(unittest.TestCase):
     def tearDown(self):
         remove(self.filename)
 
-    def test_compose(self):
-        for i, grad in enumerate(Score.grading):
-            score = Score((grad[0]+grad[1])/2)
-            num = grad[2]
-            txt = grad[3]
-            rendered = compose_body(self.filename, score)
-            if i == 0:
-                epilogue = "Życzę powodzenia na poprawie,"
-            else:
-                epilogue = "Gratuluję,"
-            expected = "-{}-{}-{}-{}-".format(str(score), num, txt, epilogue)
-            self.assertEqual(rendered, expected)
+    def test_normal_text(self):
+        rendered = compose_body(self.filename, self.values)
+        self.assertTrue(rendered.startswith('preamble'))
+        self.assertTrue(rendered.endswith('epilogue'))
+
+    def test_replace(self):
+        rendered = compose_body(self.filename, self.values)
+        self.assertTrue(" abc:\t123\n" in rendered)
+        self.assertTrue(" 777:\t999\n" in rendered)
+
+    def test_no_replace(self):
+        rendered = compose_body(self.filename, self.values)
+        self.assertTrue(" @noreplacement@\n" in rendered)
+
+    def test_no_entry(self):
+        rendered = compose_body(self.filename, self.values)
+        self.assertTrue(" XXX:\t-1\n" not in rendered)
 
 
 class TestMessage(unittest.TestCase):
@@ -205,9 +227,9 @@ class TestMessage(unittest.TestCase):
         msg = Message(self.fromaddr, self.toaddr, self.subject,
                       self.bodyplain, self.bodyhtml, ['image.jpg', argv[0]])
         txt = msg.as_string()
-        pattern = re.compile("^Content-Disposition: attachment;")
+        pattern = re.compile("^Content-Disposition: attachment;", re.M)
         count = 0
-        for match in pattern.finditer(txt, re.M):
+        for match in pattern.finditer(txt):
             count += 1
         self.assertEqual(count, 2)
 
