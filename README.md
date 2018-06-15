@@ -7,7 +7,7 @@ and attachments is also supported.
 
 ## Typical usage
 
-Suppose the results are stored in a CSV file like this:
+Suppose the results:
 
 | Name             | ID  |Test 1 | Test 2 | Sum |
 |------------------|-----|------:|-------:|----:|
@@ -15,11 +15,20 @@ Suppose the results are stored in a CSV file like this:
 | Hermiona Granger | 102 |    20 |    12  |  32 |
 | Ronald Weasley   | 103 |     5 |    10  |  15 |
 
+are stored in a CSV file like this:
+```
+Name;ID;Test1;Test2;Sum
+"Harry Potter";101;10;7;17
+"Hermiona Granger";102;20;12;32
+"Ronald Weasley";103;5;10;15
+```
+
+First, the results must be read:
 ```python
 results = get_results('file.csv', 'ID')
 ```
 
-Will return a dictionary with keys corresponding to ID column.
+This will return a dictionary with keys corresponding to ID column.
 The values will contain dictionaries with remaing data, for example:
 
 ```
@@ -28,7 +37,7 @@ The values will contain dictionaries with remaing data, for example:
 
 Next, the body of the email should be composed:
 
-```
+```python
 template = """Your results:
 @Test 1@
 @Test 2@"""
@@ -48,13 +57,13 @@ Test 2:	7
 
 After that the body is included in the message:
 
-```
+```python
 msg = Message('me@here.com', 'you@there.edu', 'your results', body)
 ```
 
 and the message is being sent:
 
-```
+```python
 with Sender(host, user, password) as snd:
     snd.send(msg)
 ```
