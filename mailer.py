@@ -1,10 +1,13 @@
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
+from email.mime.image import MIMEImage
 import mimetypes
 import getpass
 import smtplib
 import csv
+import re
 from time import sleep
+from collections import namedtuple
 
 # Global setup
 testResults = "wyniki.csv"
@@ -14,6 +17,7 @@ fileBody = "email.txt"
 fileAttach = "run.py"
 mailServer = "xxxx.xxx.xxxx.pl"
 mailUser = "borys.szefczyk"
+dryRun = False
 
 
 class Score(object):
@@ -90,30 +94,6 @@ class Score(object):
         raise RuntimeError("Value is outside grading boundaries")
 
 
-def compose_email(emailFrom, emailTo, emailSubject, body,
-                  attachment):
-    msg = MIMEMultipart()
-    msg['Subject'] = emailSubject
-    msg['From'] = emailFrom
-    msg['To'] = emailTo
-
-    plain = MIMEText(body, 'plain')
-    msg.attach(plain)
-
-    ctype, encoding = mimetypes.guess_type(attachment)
-    if ctype is None:
-        raise RuntimeError("Could not guess the MIME type")
-    maintype, subtype = ctype.split('/', 1)
-    if maintype != 'text':
-        raise NotImplementedError("Only text attachment are implemented")
-    with open(attachment) as atm_file:
-        atm = MIMEText(atm_file.read(), _subtype=subtype)
-        atm.add_header('Content-Disposition', 'attachment',
-                       filename=attachment)
-        msg.attach(atm)
-    return msg
-
-
 def compose_body(body_file, score):
     gradenum, gradetxt = score.get_grade()
     with open(body_file) as fp:
@@ -142,19 +122,119 @@ def get_results(filename):
     return results
 
 
+MType = namedtuple('MType', ['type', 'encoding', 'maintype', 'subtype'])
+
+
+class Message(MIMEMultipart):
+
+    def __init__(self, fromaddr, toaddr, subject, bodyplain=None,
+                 bodyhtml=None, attachments=[]):
+
+        super(Message, self).__init__()
+        self['Subject'] = subject
+        self['From'] = fromaddr
+        if isinstance(toaddr, str):
+            toaddr = [toaddr]
+        self['To'] = ", ".join(toaddr)
+        self.preamble = 'This is a multi-part message in MIME format.'
+
+        attachment_types = {}
+        for att in attachments:
+            ctype, encoding = mimetypes.guess_type(att)
+            if ctype is None:
+                raise RuntimeError("Could not guess the MIME type")
+            maintype, subtype = ctype.split('/', 1)
+            attachment_types[att] = MType(ctype, encoding, maintype, subtype)
+
+        if bodyplain:
+            text = MIMEText(bodyplain, _subtype='plain', _charset='UTF-8')
+
+        if bodyhtml:
+            image_cid = {}
+            idx = 0
+            for aname, atypes in attachment_types.items():
+                if atypes.maintype != 'image': continue
+                cid = "image{}".format(idx)
+                idx += 1
+                pattern = 'src\s*=\s*"{}"'.format(aname)
+                substitute = 'src="cid:{}"'.format(cid)
+                bodyhtml = re.sub(pattern, substitute, bodyhtml,
+                                  re.IGNORECASE|re.MULTILINE)
+                image_cid[aname] = cid
+            html = MIMEText(bodyhtml, _subtype='html', _charset='UTF-8')
+
+        if bodyplain and bodyhtml:
+            alternative = MIMEMultipart('alternative')
+            alternative.attach(text)
+            alternative.attach(html)
+            self.attach(alternative)
+        elif bodyplain:
+            self.attach(text)
+        elif bodyhtml:
+            self.attach(html)
+        else:
+            raise RuntimeError("plain text or html message must be present")
+
+        for atname,attype in attachment_types.items():
+            if attype.maintype == 'image':
+                with open(atname, 'rb') as atfile:
+                    atm = MIMEImage(atfile.read(), _subtype=attype.subtype)
+                    if atname in image_cid:
+                        cid = image_cid[atname]
+                        atm.add_header('Content-ID', '<{}>'.format(cid))
+            elif attype.maintype == 'text':
+                with open(att) as atfile:
+                    atm = MIMEText(atfile.read(), _subtype=attype.subtype)
+            else:
+                raise NotImplementedError(
+                    "{} attachments are not implemented".format(attype.ctype))
+            atm.add_header('Content-Disposition', 'attachment',
+                           filename=atname)
+            self.attach(atm)
+
+
+class Sender(object):
+
+    def __init__(self, server, user, password, dry_run=False):
+
+        self.dry_run = dry_run
+        self.server = server
+        self.user = user
+        self.password = password
+
+    def __enter__(self):
+        if not self.dry_run:
+            self.smtp = smtplib.SMTP(self.server, 587)
+            self.smtp.ehlo()
+            self.smtp.starttls()
+            self.smtp.login(self.user, self.password)
+        return self
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        if not self.dry_run:
+            self.smtp.quit()
+
+    def send(self, msg):
+        """Actually send the message or return text if dry run"""
+        if not dryRun:
+            self.smtp.send_message(msg)
+        else:
+            return msg.as_string()
+
+
 if __name__ == '__main__':
+
     mailPassword = getpass.getpass("Enter mailbox password:")
+
     results = get_results(testResults)
-    srv = smtplib.SMTP(mailServer, 587)
-    srv.ehlo()
-    srv.starttls()
-    srv.login(mailUser, mailPassword)
-    for student, score in results.items():
-        body = compose_body(fileBody, score)
-        to = "%s@student.pwr.edu.pl" % student
-        print("Sending score", score, "to", to)
-        msg = compose_email(emailFrom, to, emailSubject, body, fileAttach)
-        srv.send_message(msg)
-        # let the mail server take a breath
-        sleep(2)
-    srv.quit()
+
+    with Sender(mailServer, mailUser, mailPassword, dryRun) as snd:
+        for student, score in results.items():
+            body = compose_body(fileBody, score)
+            to = "%s@student.pwr.edu.pl" % student
+            print("Sending score", score, "to", to)
+            msg = Message(emailFrom, to, emailSubject, body,
+                          attachments=[fileAttach])
+            snd.send(msg)
+            # let the mail server take a breath
+            sleep(2)
