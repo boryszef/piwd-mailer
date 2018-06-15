@@ -7,16 +7,15 @@ import smtplib
 import csv
 import re
 from time import sleep
-from collections import namedtuple
+from collections import namedtuple, OrderedDict
 
 # Global setup
 testResults = "wyniki.csv"
-emailFrom = "John Doe <john.doe@example.com>"
-emailSubject = "Wyniki kolokwium z dnia X xxxxxxx XXXX"
+emailFrom = "X Y <x@y.com>"
+emailSubject = "blah"
 fileBody = "email.txt"
-fileAttach = "run.py"
-mailServer = "xxxx.xxx.xxxx.pl"
-mailUser = "borys.szefczyk"
+mailServer = "smtp.example.com"
+mailUser = "robot"
 dryRun = False
 
 
@@ -94,31 +93,45 @@ class Score(object):
         raise RuntimeError("Value is outside grading boundaries")
 
 
-def compose_body(body_file, score):
-    gradenum, gradetxt = score.get_grade()
+def compose_body(body_file, results):
     with open(body_file) as fp:
         body = fp.read()
-    body = body.replace('@SCORE@', "%.1f" % score)
-    body = body.replace('@GRADENUM@', gradenum)
-    body = body.replace('@GRADETXT@', gradetxt)
-    if gradenum == "2.0":
-        epilogue = "Życzę powodzenia na poprawie,"
-    else:
-        epilogue = "Gratuluję,"
-    body = body.replace('@EPILOGUE@', epilogue)
+    for k,v in results.items():
+        pat = "@{}@".format(k)
+        repl = "{}:\t{}".format(k, v)
+        body = body.replace(pat, repl)
     return body
 
 
-def get_results(filename):
+def get_results(filename, keyname=None, delimiter=';', quotechar='"'):
+
+    """Read results from a CSV file and return as dictionary. If `keyname`
+    is not None, the file is expected to contain column names in the first
+    row, the records are returned as dictionaries and the indicated
+    column `keyname` is used as an unique key. Otherwise, the first column
+    is used as an unique key, and the remaining fields are returned
+    as list."""
+
     results = {}
     with open(filename) as fp:
-        reader = csv.reader(fp, delimiter=';')
+        if keyname:
+            func = csv.DictReader
+        else:
+            func = csv.reader
+        reader = func(fp, delimiter=delimiter, quotechar=quotechar)
         for row in reader:
-            student_id = row[0]
-            score = row[1]
-            if score in (None, ""):
-                score = 0
-            results[student_id] = Score(score)
+            if keyname == None:
+                idx = row[0]
+                val = row[1:]
+            else:
+                val = {}
+                while row:
+                    tmp = row.popitem()
+                    if tmp[0] == keyname:
+                        idx = tmp[1]
+                    else:
+                        val[tmp[0]] = tmp[1]
+            results[idx] = val
     return results
 
 
@@ -226,15 +239,16 @@ if __name__ == '__main__':
 
     mailPassword = getpass.getpass("Enter mailbox password:")
 
-    results = get_results(testResults)
+    data = get_results(testResults, 'ID')
 
     with Sender(mailServer, mailUser, mailPassword, dryRun) as snd:
-        for student, score in results.items():
-            body = compose_body(fileBody, score)
+        for student, results in data.items():
+            body = compose_body(fileBody, results)
             to = "%s@student.pwr.edu.pl" % student
-            print("Sending score", score, "to", to)
-            msg = Message(emailFrom, to, emailSubject, body,
-                          attachments=[fileAttach])
-            snd.send(msg)
+            print("Sending to", to)
+            msg = Message(emailFrom, to, emailSubject, body)
+            out = snd.send(msg)
+            if out:
+                print(out)
             # let the mail server take a breath
             sleep(2)

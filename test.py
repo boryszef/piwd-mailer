@@ -3,6 +3,7 @@ import re
 from tempfile import NamedTemporaryFile
 from os import remove
 from sys import argv
+from random import randint
 from mailer import Score, Message, Sender, compose_body, get_results
 
 
@@ -49,28 +50,42 @@ class TestScore(unittest.TestCase):
 class TestResults(unittest.TestCase):
 
     def setUp(self):
+
+        self.ncolumns = 4
+        self.nrecords = 10
+        self.header = [ 'column {}'.format(i) for i in range(self.ncolumns) ]
         self.data = []
-        with open('wyniki.csv') as fp:
-            line = fp.readline()
-            while line:
-                self.data.append(line.strip())
-                line = fp.readline()
+        for i in range(self.nrecords):
+            row = [i]
+            row.extend([ randint(0, 100) for j in range(1, self.ncolumns) ])
+            self.data.append(row)
+
+        with NamedTemporaryFile(mode='w', suffix='.csv', delete=False) as fp:
+            row = ";".join(map(str, self.header))
+            print(row, file=fp)
+            for record in self.data:
+                row = ";".join(map(str, record))
+                print(row, file=fp)
+            self.filename = fp.name
+
+    def tearDown(self):
+        remove(self.filename)
 
     def test_length(self):
-        results = get_results('wyniki.csv')
-        self.assertEqual(len(self.data), len(results))
+        results = get_results(self.filename, keyname='column 0')
+        self.assertEqual(self.nrecords, len(results))
 
-    def test_content(self):
-        results = get_results('wyniki.csv')
-        for k,v in results.items():
-            if v > 0.0:
-                line = "%s;%.1f" % (k,v)
-                self.assertTrue(line in self.data)
-            else:
-                line1 = "%s;0.0" % k
-                line2 = "%s;" % k
-                self.assertTrue(line1 in self.data or \
-                                line2 in self.data)
+    def test_content_dict(self):
+        results = get_results(self.filename, keyname='column 0')
+        head = self.header[1:]
+        for row in self.data:
+            key = str(row[0])
+            val = row[1:]
+            self.assertTrue(key in results)
+            record = results[key]
+            for i,k in enumerate(head):
+                self.assertTrue(k in record)
+                self.assertEqual(record[k], str(val[i]))
 
 
 class TestComposeBody(unittest.TestCase):
@@ -190,7 +205,6 @@ class TestMessage(unittest.TestCase):
         msg = Message(self.fromaddr, self.toaddr, self.subject,
                       self.bodyplain, self.bodyhtml, ['image.jpg', argv[0]])
         txt = msg.as_string()
-        print(txt)
         pattern = re.compile("^Content-Disposition: attachment;")
         count = 0
         for match in pattern.finditer(txt, re.M):
