@@ -1,5 +1,5 @@
 import unittest
-from unittest.mock import patch
+from unittest.mock import patch, call
 import re
 from tempfile import NamedTemporaryFile
 from os import remove
@@ -265,10 +265,34 @@ class TestText(unittest.TestCase):
 
 class TestSender(unittest.TestCase):
 
+    def setUp(self):
+        self.msg = Message('me@here.com', 'you@there.net',
+                           'test', 'blah')
+
     @patch('smtplib.SMTP')
-    def test_create(self, mock_smtp):
+    def test_dry_run(self, mock_smtp):
         with Sender('srv','me','pass',True) as snd:
-            print(dir(snd))
+            out = snd.send(self.msg)
+            self.assertFalse(hasattr(snd, 'smtp'))
+        self.assertTrue(
+            out.startswith("Content-Type: multipart/mixed;"))
+        self.assertFalse(mock_smtp.called)
+
+    @patch('smtplib.SMTP')
+    def test_send(self, mock_smtp):
+        with Sender('srv','me','pass',False) as snd:
+            self.assertTrue(hasattr(snd, 'smtp'))
+            out = snd.send(self.msg)
+        self.assertTrue(out is None)
+        self.assertTrue(mock_smtp.called)
+        expected_calls = [
+            call('srv',587),
+            call().ehlo(),
+            call().starttls(),
+            call().login('me','pass'),
+            call().send_message(self.msg),
+            call().quit()]
+        self.assertEqual(mock_smtp.mock_calls, expected_calls)
 
 
 if __name__ == '__main__':

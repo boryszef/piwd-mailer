@@ -244,7 +244,7 @@ class Sender(object):
 
     def send(self, msg):
         """Actually send the message or return text if dry run"""
-        if not dryRun:
+        if not self.dry_run:
             self.smtp.send_message(msg)
         else:
             return msg.as_string()
