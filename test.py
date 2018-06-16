@@ -79,6 +79,8 @@ class TestResults(unittest.TestCase):
         self.assertEqual(self.nrecords, len(results))
 
     def test_content_dict(self):
+        """Specify the keyname and expect dictionaries"""
+
         results = get_results(self.filename, keyname='column 0')
         head = self.header[1:]
         for row in self.data:
@@ -91,6 +93,8 @@ class TestResults(unittest.TestCase):
                 self.assertEqual(record[k], str(val[i]))
 
     def test_content_list(self):
+        """With no keyname, a dictionary of lists should be returned"""
+
         results = get_results(self.filename)
         for row in self.data:
             key = str(row[0])
@@ -262,6 +266,18 @@ class TestText(unittest.TestCase):
         tmp = b64decode(tmp[-1])
         self.assertEqual(tmp, self.utf8)
 
+    def test_force_utf8(self):
+        """Take plain ASCII text and force it into UTF-8"""
+
+        text = self.ascii.decode('ASCII')
+        mimeobj = Text(text, _subtype='plain', _charset='UTF-8')
+        out = mimeobj.as_string()
+        pat = re.compile('^Content-Type:.*charset="utf-8"$', re.M)
+        self.assertTrue(pat.search(out))
+        tmp = out.splitlines()
+        tmp = b64decode(tmp[-1])
+        self.assertEqual(tmp, self.ascii)
+
 
 class TestSender(unittest.TestCase):
 
@@ -271,26 +287,41 @@ class TestSender(unittest.TestCase):
 
     @patch('smtplib.SMTP')
     def test_dry_run(self, mock_smtp):
+        """Check if dry_run is really a dry run (no calls to SMTP)"""
+
         with Sender('srv','me','pass',True) as snd:
             out = snd.send(self.msg)
             self.assertFalse(hasattr(snd, 'smtp'))
+
         self.assertTrue(
             out.startswith("Content-Type: multipart/mixed;"))
         self.assertFalse(mock_smtp.called)
 
     @patch('smtplib.SMTP')
     def test_send(self, mock_smtp):
+        """Check if Sender calls send_message and returns None"""
+
+        with Sender('srv','me','pass',False) as snd:
+            out = snd.send(self.msg)
+
+        self.assertTrue(out is None)
+        self.assertTrue(call().send_message(self.msg) in
+                        mock_smtp.mock_calls)
+
+    @patch('smtplib.SMTP')
+    def test_calls_to_smtp(self, mock_smtp):
+        """Check is SMTP was properly configured and exited"""
+
         with Sender('srv','me','pass',False) as snd:
             self.assertTrue(hasattr(snd, 'smtp'))
-            out = snd.send(self.msg)
-        self.assertTrue(out is None)
+            pass
+
         self.assertTrue(mock_smtp.called)
         expected_calls = [
             call('srv',587),
             call().ehlo(),
             call().starttls(),
             call().login('me','pass'),
-            call().send_message(self.msg),
             call().quit()]
         self.assertEqual(mock_smtp.mock_calls, expected_calls)
 
