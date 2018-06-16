@@ -139,8 +139,8 @@ MType = namedtuple('MType', ['type', 'encoding', 'maintype', 'subtype'])
 
 
 class Text(MIMEText):
-    """Create MIMEText object encoded as _charset, unless it's None.
-    In that case, try ASCII or UTF-8."""
+    """Create MIMEText object encoded as _charset. If _charset
+    is None, try ASCII first, then UTF-8."""
 
     def __init__(self, text, _subtype='plain', _charset=None):
 
