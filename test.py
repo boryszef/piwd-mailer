@@ -1,4 +1,5 @@
 import unittest
+from unittest.mock import patch
 import re
 from tempfile import NamedTemporaryFile
 from os import remove
@@ -260,6 +261,14 @@ class TestText(unittest.TestCase):
         tmp = out.splitlines()
         tmp = b64decode(tmp[-1])
         self.assertEqual(tmp, self.utf8)
+
+
+class TestSender(unittest.TestCase):
+
+    @patch('smtplib.SMTP')
+    def test_create(self, mock_smtp):
+        with Sender('srv','me','pass',True) as snd:
+            print(dir(snd))
 
 
 if __name__ == '__main__':
