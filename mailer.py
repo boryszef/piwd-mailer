@@ -171,13 +171,13 @@ class Message(MIMEMultipart):
 
         self.preamble = 'This is a multi-part message in MIME format.'
 
-        attachment_types = Message.get_attachment_types(attachments)
+        self.attachment_types = Message.get_attachment_types(attachments)
 
         if bodyplain:
             text = MIMEText(bodyplain, _subtype='plain')
 
         if bodyhtml:
-            bodyhtml = self.find_images_in_html(bodyhtml, attachment_types)
+            bodyhtml, self.image_cid = self.find_images_in_html(bodyhtml)
             html = MIMEText(bodyhtml, _subtype='html')
 
         if bodyplain and bodyhtml:
@@ -192,7 +192,7 @@ class Message(MIMEMultipart):
         else:
             raise RuntimeError("plain text or html message must be present")
 
-        for atname, attype in attachment_types.items():
+        for atname, attype in self.attachment_types.items():
             if attype.maintype == 'image':
                 atm = self.read_image_file(atname, attype.subtype)
             elif attype.maintype == 'text':
@@ -227,13 +227,13 @@ class Message(MIMEMultipart):
                 atm.add_header('Content-ID', '<{}>'.format(cid))
         return atm
 
-    def find_images_in_html(self, html, attachment_types):
+    def find_images_in_html(self, html):
         """Find <img> tags in html and replace with cid:image* if the file
         is provided as an attachment. Store content ID's (CID's) in self."""
 
-        self.image_cid = {}
+        image_cid = {}
         idx = 0
-        for aname, atypes in attachment_types.items():
+        for aname, atypes in self.attachment_types.items():
             if atypes.maintype != 'image':
                 continue
             cid = "image{}".format(idx)
@@ -241,9 +241,9 @@ class Message(MIMEMultipart):
             pattern = 'src\s*=\s*"{}"'.format(aname)
             substitute = 'src="cid:{}"'.format(cid)
             html = re.sub(pattern, substitute, html,
-                              re.IGNORECASE | re.MULTILINE)
-            self.image_cid[aname] = cid
-        return html
+                          re.IGNORECASE | re.MULTILINE)
+            image_cid[aname] = cid
+        return html, image_cid
 
 
 class Sender(object):
