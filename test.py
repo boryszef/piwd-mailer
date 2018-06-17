@@ -56,11 +56,11 @@ class TestResults(unittest.TestCase):
 
         self.ncolumns = 4
         self.nrecords = 10
-        self.header = [ 'column {}'.format(i) for i in range(self.ncolumns) ]
+        self.header = ['column {}'.format(i) for i in range(self.ncolumns)]
         self.data = []
         for i in range(self.nrecords):
             row = [i]
-            row.extend([ randint(0, 100) for j in range(1, self.ncolumns) ])
+            row.extend([randint(0, 100) for j in range(1, self.ncolumns)])
             self.data.append(row)
 
         with NamedTemporaryFile(mode='w', suffix='.csv', delete=False) as fp:
@@ -88,7 +88,7 @@ class TestResults(unittest.TestCase):
             val = row[1:]
             self.assertTrue(key in results)
             record = results[key]
-            for i,k in enumerate(head):
+            for i, k in enumerate(head):
                 self.assertTrue(k in record)
                 self.assertEqual(record[k], str(val[i]))
 
@@ -108,9 +108,9 @@ class TestComposeBody(unittest.TestCase):
 
     def setUp(self):
         self.values = {
-            'abc':123,
-            'XXX':-1,
-            '777':999}
+            'abc': 123,
+            'XXX': -1,
+            '777': 999}
         body = """preamble
         @abc@
         @777@
@@ -289,7 +289,7 @@ class TestSender(unittest.TestCase):
     def test_dry_run(self, mock_smtp):
         """Check if dry_run is really a dry run (no calls to SMTP)"""
 
-        with Sender('srv','me','pass',True) as snd:
+        with Sender('srv', 'me', 'pass', True) as snd:
             out = snd.send(self.msg)
             self.assertFalse(hasattr(snd, 'smtp'))
 
@@ -301,7 +301,7 @@ class TestSender(unittest.TestCase):
     def test_send(self, mock_smtp):
         """Check if Sender calls send_message and returns None"""
 
-        with Sender('srv','me','pass',False) as snd:
+        with Sender('srv', 'me', 'pass', False) as snd:
             out = snd.send(self.msg)
 
         self.assertTrue(out is None)
@@ -312,16 +312,16 @@ class TestSender(unittest.TestCase):
     def test_calls_to_smtp(self, mock_smtp):
         """Check is SMTP was properly configured and exited"""
 
-        with Sender('srv','me','pass',False) as snd:
+        with Sender('srv', 'me', 'pass', False) as snd:
             self.assertTrue(hasattr(snd, 'smtp'))
             pass
 
         self.assertTrue(mock_smtp.called)
         expected_calls = [
-            call('srv',587),
+            call('srv', 587),
             call().ehlo(),
             call().starttls(),
-            call().login('me','pass'),
+            call().login('me', 'pass'),
             call().quit()]
         self.assertEqual(mock_smtp.mock_calls, expected_calls)
 

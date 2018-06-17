@@ -7,7 +7,7 @@ import smtplib
 import csv
 import re
 from time import sleep
-from collections import namedtuple, OrderedDict
+from collections import namedtuple
 
 # Global setup
 testResults = "wyniki.csv"
@@ -85,6 +85,9 @@ class Score(object):
         return True if self.value <= other.value else False
 
     def get_grade(self):
+        """Return a tuple containing the numerical and textual
+        grade corresponding to the score, both as str type."""
+
         for grade in self.grading:
             low = grade[0]
             high = grade[1]
@@ -96,7 +99,7 @@ class Score(object):
 def compose_body(body_file, results):
     with open(body_file) as fp:
         body = fp.read()
-    for k,v in results.items():
+    for k, v in results.items():
         pat = "@{}@".format(k)
         repl = "{}:\t{}".format(k, v)
         body = body.replace(pat, repl)
@@ -120,7 +123,7 @@ def get_results(filename, keyname=None, delimiter=';', quotechar='"'):
             func = csv.reader
         reader = func(fp, delimiter=delimiter, quotechar=quotechar)
         for row in reader:
-            if keyname == None:
+            if keyname is None:
                 idx = row[0]
                 val = row[1:]
             else:
@@ -144,12 +147,12 @@ class Text(MIMEText):
 
     def __init__(self, text, _subtype='plain', _charset=None):
 
-        if _charset == None:
+        if _charset is None:
             try:
                 text.encode('US-ASCII')
-                _charset='US-ASCII'
+                _charset = 'US-ASCII'
             except UnicodeEncodeError:
-                _charset='UTF-8'
+                _charset = 'UTF-8'
         super(Text, self).__init__(text, _subtype, _charset)
 
 
@@ -181,13 +184,14 @@ class Message(MIMEMultipart):
             image_cid = {}
             idx = 0
             for aname, atypes in attachment_types.items():
-                if atypes.maintype != 'image': continue
+                if atypes.maintype != 'image':
+                    continue
                 cid = "image{}".format(idx)
                 idx += 1
                 pattern = 'src\s*=\s*"{}"'.format(aname)
                 substitute = 'src="cid:{}"'.format(cid)
                 bodyhtml = re.sub(pattern, substitute, bodyhtml,
-                                  re.IGNORECASE|re.MULTILINE)
+                                  re.IGNORECASE | re.MULTILINE)
                 image_cid[aname] = cid
             html = MIMEText(bodyhtml, _subtype='html')
 
@@ -203,7 +207,7 @@ class Message(MIMEMultipart):
         else:
             raise RuntimeError("plain text or html message must be present")
 
-        for atname,attype in attachment_types.items():
+        for atname, attype in attachment_types.items():
             if attype.maintype == 'image':
                 with open(atname, 'rb') as atfile:
                     atm = MIMEImage(atfile.read(), _subtype=attype.subtype)
