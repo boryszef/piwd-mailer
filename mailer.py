@@ -162,37 +162,22 @@ class Message(MIMEMultipart):
                  bodyhtml=None, attachments=[]):
 
         super(Message, self).__init__()
+
         self['Subject'] = subject
         self['From'] = fromaddr
         if isinstance(toaddr, str):
             toaddr = [toaddr]
         self['To'] = ", ".join(toaddr)
+
         self.preamble = 'This is a multi-part message in MIME format.'
 
-        attachment_types = {}
-        for att in attachments:
-            ctype, encoding = mimetypes.guess_type(att)
-            if ctype is None:
-                raise RuntimeError("Could not guess the MIME type")
-            maintype, subtype = ctype.split('/', 1)
-            attachment_types[att] = MType(ctype, encoding, maintype, subtype)
+        attachment_types = Message.get_attachment_types(attachments)
 
         if bodyplain:
             text = MIMEText(bodyplain, _subtype='plain')
 
         if bodyhtml:
-            image_cid = {}
-            idx = 0
-            for aname, atypes in attachment_types.items():
-                if atypes.maintype != 'image':
-                    continue
-                cid = "image{}".format(idx)
-                idx += 1
-                pattern = 'src\s*=\s*"{}"'.format(aname)
-                substitute = 'src="cid:{}"'.format(cid)
-                bodyhtml = re.sub(pattern, substitute, bodyhtml,
-                                  re.IGNORECASE | re.MULTILINE)
-                image_cid[aname] = cid
+            bodyhtml = self.find_images_in_html(bodyhtml, attachment_types)
             html = MIMEText(bodyhtml, _subtype='html')
 
         if bodyplain and bodyhtml:
@@ -209,20 +194,56 @@ class Message(MIMEMultipart):
 
         for atname, attype in attachment_types.items():
             if attype.maintype == 'image':
-                with open(atname, 'rb') as atfile:
-                    atm = MIMEImage(atfile.read(), _subtype=attype.subtype)
-                    if atname in image_cid:
-                        cid = image_cid[atname]
-                        atm.add_header('Content-ID', '<{}>'.format(cid))
+                atm = self.read_image_file(atname, attype.subtype)
             elif attype.maintype == 'text':
-                with open(att) as atfile:
-                    atm = MIMEText(atfile.read(), _subtype=attype.subtype)
+                with open(atname) as atfile:
+                    atm = Text(atfile.read(), _subtype=attype.subtype,
+                               _charset=attype.encoding)
             else:
                 raise NotImplementedError(
                     "{} attachments are not implemented".format(attype.ctype))
             atm.add_header('Content-Disposition', 'attachment',
                            filename=atname)
             self.attach(atm)
+
+    @staticmethod
+    def get_attachment_types(attachments):
+        """For a list of file names, guess the MIME types and encoding."""
+
+        attachment_types = {}
+        for att in attachments:
+            ctype, encoding = mimetypes.guess_type(att)
+            if ctype is None:
+                raise RuntimeError("Could not guess the MIME type")
+            maintype, subtype = ctype.split('/', 1)
+            attachment_types[att] = MType(ctype, encoding, maintype, subtype)
+        return attachment_types
+
+    def read_image_file(self, name, subtype):
+        with open(name, 'rb') as atmfile:
+            atm = MIMEImage(atmfile.read(), _subtype=subtype)
+            if name in self.image_cid:
+                cid = self.image_cid[name]
+                atm.add_header('Content-ID', '<{}>'.format(cid))
+        return atm
+
+    def find_images_in_html(self, html, attachment_types):
+        """Find <img> tags in html and replace with cid:image* if the file
+        is provided as an attachment. Store content ID's (CID's) in self."""
+
+        self.image_cid = {}
+        idx = 0
+        for aname, atypes in attachment_types.items():
+            if atypes.maintype != 'image':
+                continue
+            cid = "image{}".format(idx)
+            idx += 1
+            pattern = 'src\s*=\s*"{}"'.format(aname)
+            substitute = 'src="cid:{}"'.format(cid)
+            html = re.sub(pattern, substitute, html,
+                              re.IGNORECASE | re.MULTILINE)
+            self.image_cid[aname] = cid
+        return html
 
 
 class Sender(object):
