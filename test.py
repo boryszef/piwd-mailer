@@ -247,6 +247,7 @@ class TestMessage(unittest.TestCase):
         msg = Message(self.fromaddr, self.toaddr, self.subject,
                       self.bodyplain, self.bodyhtml, att)
         txt = msg.as_string()
+        print(txt)
         result = re.search("^Content-Type: application/pdf", txt, re.M)
         self.assertTrue(result)
 

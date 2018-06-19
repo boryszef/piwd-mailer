@@ -1,6 +1,7 @@
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from email.mime.image import MIMEImage
+from email.mime.application import MIMEApplication
 import mimetypes
 import getpass
 import smtplib
@@ -196,9 +197,12 @@ class Message(MIMEMultipart):
             if attype.maintype == 'image':
                 atm = self.read_image_file(atname, attype.subtype)
             elif attype.maintype == 'text':
-                with open(atname) as atfile:
+                with open(atname, encoding=attype.encoding) as atfile:
                     atm = Text(atfile.read(), _subtype=attype.subtype,
                                _charset=attype.encoding)
+            elif attype.maintype == 'application':
+                with open(atname, 'rb') as atfile:
+                    atm = MIMEApplication(atfile.read(), _subtype=attype.subtype)
             else:
                 raise NotImplementedError(
                     "{} attachments are not implemented".format(attype.type))
