@@ -155,6 +155,8 @@ class TestMessage(unittest.TestCase):
         <p>Bye <img src="image.jpg" /></p>
         </body>
         </html>"""
+        self.attachments = ["image.jpg", "sample.ps", "sample.pdf",
+                            "sample.docx", "test.py"]
 
     def test_from(self):
         msg = Message(self.fromaddr, self.toaddr, self.subject,
@@ -215,30 +217,48 @@ class TestMessage(unittest.TestCase):
         self.assertTrue(result)
 
     def test_attach_image(self):
+        att = list(filter(lambda s: s.endswith(".jpg"), self.attachments))
         msg = Message(self.fromaddr, self.toaddr, self.subject,
-                      self.bodyplain, self.bodyhtml, ['image.jpg'])
+                      self.bodyplain, self.bodyhtml, att)
         txt = msg.as_string()
         result = re.search("^Content-Type: image/jpeg", txt, re.M)
         self.assertTrue(result)
         result = re.search("^Content-ID: <image\d+>", txt, re.M)
         self.assertTrue(result)
 
-    def test_attach_script(self):
+    def test_attach_python(self):
+        att = list(filter(lambda s: s.endswith(".py"), self.attachments))
         msg = Message(self.fromaddr, self.toaddr, self.subject,
-                      self.bodyplain, self.bodyhtml, [argv[0]])
+                      self.bodyplain, self.bodyhtml, att)
         txt = msg.as_string()
         result = re.search("^Content-Type: text/x-python", txt, re.M)
         self.assertTrue(result)
 
-    def test_two_attachments(self):
+    def test_attach_postscript(self):
+        att = list(filter(lambda s: s.endswith(".ps"), self.attachments))
         msg = Message(self.fromaddr, self.toaddr, self.subject,
-                      self.bodyplain, self.bodyhtml, ['image.jpg', argv[0]])
+                      self.bodyplain, self.bodyhtml, att)
+        txt = msg.as_string()
+        result = re.search("^Content-Type: application/postscript", txt, re.M)
+        self.assertTrue(result)
+
+    def test_attach_pdf(self):
+        att = list(filter(lambda s: s.endswith(".pdf"), self.attachments))
+        msg = Message(self.fromaddr, self.toaddr, self.subject,
+                      self.bodyplain, self.bodyhtml, att)
+        txt = msg.as_string()
+        result = re.search("^Content-Type: application/pdf", txt, re.M)
+        self.assertTrue(result)
+
+    def test_many_attachments(self):
+        msg = Message(self.fromaddr, self.toaddr, self.subject,
+                      self.bodyplain, self.bodyhtml, self.attachments)
         txt = msg.as_string()
         pattern = re.compile("^Content-Disposition: attachment;", re.M)
         count = 0
         for match in pattern.finditer(txt):
             count += 1
-        self.assertEqual(count, 2)
+        self.assertEqual(count, len(self.attachments))
 
 
 class TestText(unittest.TestCase):

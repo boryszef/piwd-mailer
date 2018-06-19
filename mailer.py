@@ -201,7 +201,7 @@ class Message(MIMEMultipart):
                                _charset=attype.encoding)
             else:
                 raise NotImplementedError(
-                    "{} attachments are not implemented".format(attype.ctype))
+                    "{} attachments are not implemented".format(attype.type))
             atm.add_header('Content-Disposition', 'attachment',
                            filename=atname)
             self.attach(atm)
