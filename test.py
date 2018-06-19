@@ -3,11 +3,29 @@ from unittest.mock import patch, call
 import re
 from tempfile import NamedTemporaryFile
 from os import remove
-from sys import argv
 from random import randint
 from base64 import b64decode
+from email import message_from_string
 from mailer import Score, Text, Message, Sender
 from mailer import compose_body, get_results
+
+
+def get_attachment(email, filename):
+    msg = message_from_string(email)
+    key = 'Content-Disposition'
+    val = 'attachment; filename="{}"'.format(filename)
+    for part in msg.walk():
+        if key in part.keys() and part[key] == val:
+            payload = part.get_payload()
+            transfer = part['Content-Transfer-Encoding']
+            if transfer == '7bit':
+                return payload.encode('ASCII')
+            elif transfer == 'base64':
+                return b64decode(payload)
+            else:
+                raise NotImplementedError(
+                    "Encoding {} not implemented".format(transfer))
+    return None
 
 
 class TestScore(unittest.TestCase):
@@ -225,6 +243,10 @@ class TestMessage(unittest.TestCase):
         self.assertTrue(result)
         result = re.search("^Content-ID: <image\d+>", txt, re.M)
         self.assertTrue(result)
+        img = get_attachment(txt, att[0])
+        with open(att[0], 'rb') as fp:
+            orig = fp.read()
+        self.assertEqual(orig, img)
 
     def test_attach_python(self):
         att = list(filter(lambda s: s.endswith(".py"), self.attachments))
@@ -233,6 +255,10 @@ class TestMessage(unittest.TestCase):
         txt = msg.as_string()
         result = re.search("^Content-Type: text/x-python", txt, re.M)
         self.assertTrue(result)
+        script = get_attachment(txt, att[0])
+        with open(att[0], 'rb') as fp:
+            orig = fp.read()
+        self.assertEqual(orig, script)
 
     def test_attach_postscript(self):
         att = list(filter(lambda s: s.endswith(".ps"), self.attachments))
@@ -241,15 +267,22 @@ class TestMessage(unittest.TestCase):
         txt = msg.as_string()
         result = re.search("^Content-Type: application/postscript", txt, re.M)
         self.assertTrue(result)
+        ps = get_attachment(txt, att[0])
+        with open(att[0], 'rb') as fp:
+            orig = fp.read()
+        self.assertEqual(orig, ps)
 
     def test_attach_pdf(self):
         att = list(filter(lambda s: s.endswith(".pdf"), self.attachments))
         msg = Message(self.fromaddr, self.toaddr, self.subject,
                       self.bodyplain, self.bodyhtml, att)
         txt = msg.as_string()
-        print(txt)
         result = re.search("^Content-Type: application/pdf", txt, re.M)
         self.assertTrue(result)
+        pdf = get_attachment(txt, att[0])
+        with open(att[0], 'rb') as fp:
+            orig = fp.read()
+        self.assertEqual(orig, pdf)
 
     def test_many_attachments(self):
         msg = Message(self.fromaddr, self.toaddr, self.subject,
